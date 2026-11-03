@@ -826,7 +826,7 @@ static int gfx_v9_4_3_switch_compute_partition(struct amdgpu_device *adev,
 	for (i = 0; i < num_xcc; i++) {
 		xcp_ctl = RREG32_SOC15(GC, GET_INST(GC, i), regCP_HYP_XCP_CTL);
 		dev_info(adev->dev,
-			 "locality POC: physical XCC %d CP_HYP_XCP_CTL=%#x virtual_xcc=%u xccs_per_xcp=%u\n",
+			 "locality mapping: physical XCC %d CP_HYP_XCP_CTL=%#x virtual_xcc=%u xccs_per_xcp=%u\n",
 			 i, xcp_ctl,
 			 REG_GET_FIELD(xcp_ctl, CP_HYP_XCP_CTL, VIRTUAL_XCC_ID),
 			 REG_GET_FIELD(xcp_ctl, CP_HYP_XCP_CTL, NUM_XCC_IN_XCP));

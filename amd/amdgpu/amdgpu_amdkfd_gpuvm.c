@@ -1806,10 +1806,11 @@ size_t amdgpu_amdkfd_get_available_memory(struct amdgpu_device *adev,
 	return available;
 }
 
-int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
+int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu_mem_id(
 		struct amdgpu_device *adev, uint64_t va, uint64_t size,
 		void *drm_priv, struct kgd_mem **mem,
-		uint64_t *offset, uint32_t flags, bool criu_resume)
+		uint64_t *offset, uint32_t flags, int8_t mem_id,
+		bool criu_resume)
 {
 	struct amdgpu_vm *avm = drm_priv_to_vm(drm_priv);
 	struct amdgpu_fpriv *fpriv = container_of(avm, struct amdgpu_fpriv, vm);
@@ -1829,6 +1830,10 @@ int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
 	 */
 	if (flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM) {
 		domain = alloc_domain = AMDGPU_GEM_DOMAIN_VRAM;
+		if (mem_id >= 0 &&
+		    (!adev->gmc.mem_partitions ||
+		     mem_id >= adev->gmc.num_mem_partitions))
+			return -EINVAL;
 
 		if (adev->apu_prefer_gtt) {
 			domain = AMDGPU_GEM_DOMAIN_GTT;
@@ -1910,8 +1915,10 @@ int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
 		 va, (*mem)->aql_queue ? size << 1 : size,
 		 domain_string(alloc_domain), xcp_id);
 
-	ret = amdgpu_gem_object_create(adev, aligned_size, 1, alloc_domain, alloc_flags,
-				       bo_type, NULL, &gobj, xcp_id + 1);
+	ret = amdgpu_gem_object_create_mem_id(adev, aligned_size, 1,
+					      alloc_domain, alloc_flags,
+					      bo_type, NULL, &gobj,
+					      xcp_id + 1, mem_id);
 	if (ret) {
 		pr_debug("Failed to create BO on domain %s. ret %d\n",
 			 domain_string(alloc_domain), ret);
@@ -1997,6 +2004,15 @@ err:
 		kfree(sg);
 	}
 	return ret;
+}
+
+int amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
+		struct amdgpu_device *adev, uint64_t va, uint64_t size,
+		void *drm_priv, struct kgd_mem **mem,
+		uint64_t *offset, uint32_t flags, bool criu_resume)
+{
+	return amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu_mem_id(
+		adev, va, size, drm_priv, mem, offset, flags, -1, criu_resume);
 }
 
 int amdgpu_amdkfd_gpuvm_free_memory_of_gpu(

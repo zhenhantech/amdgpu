@@ -58,6 +58,8 @@ struct amdgpu_bo_param {
 	void				(*destroy)(struct ttm_buffer_object *bo);
 	/* xcp partition number plus 1, 0 means any partition */
 	int8_t				xcp_id_plus1;
+	/* requested memory partition plus 1, 0 means use XCP default */
+	int8_t				mem_id_plus1;
 };
 
 /* bo virtual addresses in a vm */
@@ -134,6 +136,8 @@ struct amdgpu_bo {
 	 * for memory accounting.
 	 */
 	int8_t				xcp_id;
+	/* Explicit VRAM memory partition, -1 means use the XCP default. */
+	int8_t				mem_id;
 };
 
 struct amdgpu_bo_user {

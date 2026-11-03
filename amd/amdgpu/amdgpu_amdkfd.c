@@ -842,6 +842,14 @@ u64 amdgpu_amdkfd_xcp_memory_size(struct amdgpu_device *adev, int xcp_id)
 	s8 mem_id = KFD_XCP_MEM_ID(adev, xcp_id);
 	u64 tmp;
 
+	/* SPX + NPS2 uses one compute partition across both memory regions,
+	 * so retain the full-card KFD quota.
+	 */
+	if (adev->xcp_mgr &&
+	    adev->xcp_mgr->mode == AMDGPU_SPX_PARTITION_MODE &&
+	    adev->gmc.num_mem_partitions > 1)
+		return ALIGN_DOWN(adev->gmc.real_vram_size, PAGE_SIZE);
+
 	if (adev->gmc.num_mem_partitions && xcp_id >= 0 && mem_id >= 0) {
 		if (adev->gmc.is_app_apu && adev->gmc.num_mem_partitions == 1) {
 			/* In NPS1 mode, we should restrict the vram reporting

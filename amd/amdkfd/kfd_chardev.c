@@ -1082,10 +1082,12 @@ static int kfd_ioctl_get_available_memory(struct file *filep,
 	return 0;
 }
 
-static int kfd_ioctl_alloc_memory_of_gpu(struct file *filep,
-					struct kfd_process *p, void *data)
+static int kfd_ioctl_alloc_memory_of_gpu_common(
+					struct file *filep,
+					struct kfd_process *p,
+					struct kfd_ioctl_alloc_memory_of_gpu_args *args,
+					int8_t mem_id)
 {
-	struct kfd_ioctl_alloc_memory_of_gpu_args *args = data;
 	struct kfd_process_device *pdd;
 	void *mem;
 	struct kfd_node *dev;
@@ -1218,10 +1220,16 @@ static int kfd_ioctl_alloc_memory_of_gpu(struct file *filep,
 		}
 	}
 
-	err = amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
-		dev->adev, args->va_addr, args->size,
-		pdd->drm_priv, (struct kgd_mem **) &mem, &offset,
-		flags, false);
+	if (mem_id < 0)
+		err = amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(
+			dev->adev, args->va_addr, args->size,
+			pdd->drm_priv, (struct kgd_mem **) &mem, &offset,
+			flags, false);
+	else
+		err = amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu_mem_id(
+			dev->adev, args->va_addr, args->size,
+			pdd->drm_priv, (struct kgd_mem **) &mem, &offset,
+			flags, mem_id, false);
 
 	if (err)
 		goto err_unlock;
@@ -1269,6 +1277,25 @@ err_pdd:
 err_large_bar:
 	mutex_unlock(&p->mutex);
 	return err;
+}
+
+static int kfd_ioctl_alloc_memory_of_gpu(struct file *filep,
+					struct kfd_process *p, void *data)
+{
+	return kfd_ioctl_alloc_memory_of_gpu_common(filep, p, data, -1);
+}
+
+static int kfd_ioctl_alloc_memory_of_gpu_mem_id(struct file *filep,
+					       struct kfd_process *p, void *data)
+{
+	struct kfd_ioctl_alloc_memory_of_gpu_mem_id_args *args = data;
+
+	if (!(args->flags & KFD_IOC_ALLOC_MEM_FLAGS_VRAM) ||
+	    args->mem_id < 0 || args->mem_id > S8_MAX)
+		return -EINVAL;
+
+	return kfd_ioctl_alloc_memory_of_gpu_common(filep, p,
+		(struct kfd_ioctl_alloc_memory_of_gpu_args *)args, args->mem_id);
 }
 
 static int kfd_ioctl_free_memory_of_gpu(struct file *filep,
@@ -2719,7 +2746,8 @@ static int criu_restore_memory_of_gpu(struct kfd_process_device *pdd,
 	/* Create the BO */
 	ret = amdgpu_amdkfd_gpuvm_alloc_memory_of_gpu(pdd->dev->adev, bo_bucket->addr,
 						      bo_bucket->size, pdd->drm_priv, kgd_mem,
-						      &offset, bo_bucket->alloc_flags, criu_resume);
+						      &offset, bo_bucket->alloc_flags,
+						      criu_resume);
 	if (ret) {
 		pr_err("Could not create the BO\n");
 		return ret;
@@ -3919,6 +3947,9 @@ static const struct amdkfd_ioctl_desc amdkfd_ioctls[] = {
 	/* TODO: KFD_IOC_FLAG_PERFMON is not required for host-trap, disable first */
 	AMDKFD_IOCTL_DEF(AMDKFD_IOC_PC_SAMPLE,
 			kfd_ioctl_pc_sample, 0),
+
+	AMDKFD_IOCTL_DEF(AMDKFD_IOC_ALLOC_MEMORY_OF_GPU_MEM_ID,
+			kfd_ioctl_alloc_memory_of_gpu_mem_id, 0),
 
 	AMDKFD_IOCTL_DEF(AMDKFD_IOC_PROFILER,
 			kfd_ioctl_profiler, 0),

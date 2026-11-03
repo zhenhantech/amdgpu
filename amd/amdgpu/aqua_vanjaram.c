@@ -213,7 +213,11 @@ static int __aqua_vanjaram_get_px_mode_info(struct amdgpu_xcp_mgr *xcp_mgr,
 	switch (px_mode) {
 	case AMDGPU_SPX_PARTITION_MODE:
 		*num_xcp = 1;
-		*nps_modes = BIT(AMDGPU_NPS1_PARTITION_MODE);
+		/* NPS2 exposes two IOD-local VRAM regions without splitting SPX.
+		 * BO placement selects the requested region.
+		 */
+		*nps_modes = BIT(AMDGPU_NPS1_PARTITION_MODE) |
+			     BIT(AMDGPU_NPS2_PARTITION_MODE);
 		break;
 	case AMDGPU_DPX_PARTITION_MODE:
 		*num_xcp = 2;
@@ -446,6 +450,12 @@ static int aqua_vanjaram_get_xcp_mem_id(struct amdgpu_xcp_mgr *xcp_mgr,
 	*/
 	if (adev->gmc.num_mem_partitions == 1) {
 		/* Only one range */
+		*mem_id = 0;
+		return 0;
+	}
+
+	/* SPX with multiple memory partitions has no default memory region. */
+	if (xcp_mgr->mode == AMDGPU_SPX_PARTITION_MODE) {
 		*mem_id = 0;
 		return 0;
 	}

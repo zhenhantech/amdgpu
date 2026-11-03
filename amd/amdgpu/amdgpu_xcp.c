@@ -155,7 +155,8 @@ int amdgpu_xcp_init(struct amdgpu_xcp_mgr *xcp_mgr, int num_xcps, int mode)
 		xcp_mgr->xcp[i].valid = false;
 
 	/* This is needed for figuring out memory id of xcp */
-	xcp_mgr->num_xcp_per_mem_partition = num_xcps / xcp_mgr->adev->gmc.num_mem_partitions;
+	xcp_mgr->num_xcp_per_mem_partition =
+		max(1, num_xcps / xcp_mgr->adev->gmc.num_mem_partitions);
 
 	for (i = 0; i < num_xcps; ++i) {
 		for (j = AMDGPU_XCP_GFXHUB; j < AMDGPU_XCP_MAX_BLOCKS; ++j) {

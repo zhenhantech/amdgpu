@@ -117,9 +117,19 @@ void amdgpu_bo_placement_from_domain(struct amdgpu_bo *abo, u32 domain)
 
 	if (domain & AMDGPU_GEM_DOMAIN_VRAM) {
 		unsigned int visible_pfn = adev->gmc.visible_vram_size >> PAGE_SHIFT;
-		int8_t mem_id = KFD_XCP_MEM_ID(adev, abo->xcp_id);
+		int8_t mem_id = abo->mem_id;
 
-		if (adev->gmc.mem_partitions && mem_id >= 0) {
+		/* In SPX + NPS2, an unspecified allocation uses the full VRAM
+		 * pool rather than the XCP's placeholder memory ID.
+		 */
+		if (mem_id < 0 &&
+		    !(adev->xcp_mgr &&
+		      adev->xcp_mgr->mode == AMDGPU_SPX_PARTITION_MODE &&
+		      adev->gmc.num_mem_partitions > 1))
+			mem_id = KFD_XCP_MEM_ID(adev, abo->xcp_id);
+
+		if (adev->gmc.mem_partitions && mem_id >= 0 &&
+		    mem_id < adev->gmc.num_mem_partitions) {
 			places[c].fpfn = adev->gmc.mem_partitions[mem_id].range.fpfn;
 			/*
 			 * memory partition range lpfn is inclusive start + size - 1
@@ -687,6 +697,7 @@ int amdgpu_bo_create(struct amdgpu_device *adev,
 	else
 		/* For GPUs without spatial partitioning */
 		bo->xcp_id = 0;
+	bo->mem_id = bp->mem_id_plus1 - 1;
 
 	if (!amdgpu_bo_support_uswc(bo->flags))
 		bo->flags &= ~AMDGPU_GEM_CREATE_CPU_GTT_USWC;

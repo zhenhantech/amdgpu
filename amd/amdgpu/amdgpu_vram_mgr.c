@@ -900,6 +900,35 @@ static void amdgpu_vram_mgr_debug(struct ttm_resource_manager *man,
 
 	drm_buddy_print(mm, printer);
 
+	{
+		struct amdgpu_device *adev = amdgpu_ttm_adev(man->bdev);
+		struct amdgpu_vram_mgr_resource *vres;
+		int i;
+
+		drm_printf(printer, "locality_partitions %u\n",
+			   adev->gmc.num_mem_partitions);
+		if (adev->gmc.mem_partitions) {
+			for (i = 0; i < adev->gmc.num_mem_partitions; i++) {
+				u64 start = (u64)adev->gmc.mem_partitions[i].range.fpfn << PAGE_SHIFT;
+				u64 end = ((u64)adev->gmc.mem_partitions[i].range.lpfn + 1) << PAGE_SHIFT;
+
+				drm_printf(printer, "locality_range %d %llu %llu\n",
+					   i, start, end);
+			}
+		}
+		list_for_each_entry(vres, &mgr->allocated_vres_list, vres_node) {
+			struct drm_buddy_block *block;
+
+			list_for_each_entry(block, &vres->blocks, link)
+				drm_printf(printer,
+					   "locality_alloc %d %llu %llu %s\n",
+					   vres->task.pid,
+					   amdgpu_vram_mgr_block_start(block),
+					   amdgpu_vram_mgr_block_size(block),
+					   vres->task.comm);
+		}
+	}
+
 	drm_printf(printer, "reserved:\n");
 	list_for_each_entry(rsv, &mgr->reserved_pages, blocks)
 		drm_printf(printer, "%#018llx-%#018llx: %llu\n",

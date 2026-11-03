@@ -182,11 +182,13 @@ static void amdgpu_gem_object_free(struct drm_gem_object *gobj)
 	ttm_bo_fini(&aobj->tbo);
 }
 
-int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
-			     int alignment, u32 initial_domain,
-			     u64 flags, enum ttm_bo_type type,
-			     struct dma_resv *resv,
-			     struct drm_gem_object **obj, int8_t xcp_id_plus1)
+int amdgpu_gem_object_create_mem_id(struct amdgpu_device *adev,
+				    unsigned long size, int alignment,
+				    u32 initial_domain, u64 flags,
+				    enum ttm_bo_type type,
+				    struct dma_resv *resv,
+				    struct drm_gem_object **obj,
+				    int8_t xcp_id_plus1, int8_t mem_id)
 {
 	struct amdgpu_bo *bo;
 	struct amdgpu_bo_user *ubo;
@@ -206,6 +208,7 @@ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
 	bp.domain = initial_domain;
 	bp.bo_ptr_size = sizeof(struct amdgpu_bo);
 	bp.xcp_id_plus1 = xcp_id_plus1;
+	bp.mem_id_plus1 = mem_id + 1;
 
 	r = amdgpu_bo_create_user(adev, &bp, &ubo);
 	if (r)
@@ -215,6 +218,17 @@ int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
 	*obj = &bo->tbo.base;
 
 	return 0;
+}
+
+int amdgpu_gem_object_create(struct amdgpu_device *adev, unsigned long size,
+			     int alignment, u32 initial_domain,
+			     u64 flags, enum ttm_bo_type type,
+			     struct dma_resv *resv,
+			     struct drm_gem_object **obj, int8_t xcp_id_plus1)
+{
+	return amdgpu_gem_object_create_mem_id(adev, size, alignment,
+					       initial_domain, flags, type,
+					       resv, obj, xcp_id_plus1, -1);
 }
 
 void amdgpu_gem_force_release(struct amdgpu_device *adev)
@@ -495,7 +509,8 @@ int amdgpu_gem_create_ioctl(struct drm_device *dev, void *data,
 retry:
 	r = amdgpu_gem_object_create(adev, size, args->in.alignment,
 				     initial_domain,
-				     flags, ttm_bo_type_device, resv, &gobj, fpriv->xcp_id + 1);
+				     flags, ttm_bo_type_device, resv, &gobj,
+				     fpriv->xcp_id + 1);
 	if (r && r != -ERESTARTSYS) {
 		if (flags & AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED) {
 			flags &= ~AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
@@ -568,7 +583,8 @@ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
 
 	/* create a gem object to contain this object in */
 	r = amdgpu_gem_object_create(adev, args->size, 0, AMDGPU_GEM_DOMAIN_CPU,
-				     0, ttm_bo_type_device, NULL, &gobj, fpriv->xcp_id + 1);
+				     0, ttm_bo_type_device, NULL, &gobj,
+				     fpriv->xcp_id + 1);
 	if (r)
 		return r;
 
@@ -1378,7 +1394,8 @@ int amdgpu_mode_dumb_create(struct drm_file *file_priv,
 	domain = amdgpu_bo_get_preferred_domain(adev,
 				amdgpu_display_supported_domains(adev, flags));
 	r = amdgpu_gem_object_create(adev, args->size, 0, domain, flags,
-				     ttm_bo_type_device, NULL, &gobj, fpriv->xcp_id + 1);
+				     ttm_bo_type_device, NULL, &gobj,
+				     fpriv->xcp_id + 1);
 	if (r)
 		return -ENOMEM;
 

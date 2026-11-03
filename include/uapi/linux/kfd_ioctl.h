@@ -459,6 +459,18 @@ struct kfd_ioctl_alloc_memory_of_gpu_args {
 	__u32 flags;
 };
 
+struct kfd_ioctl_alloc_memory_of_gpu_mem_id_args {
+	__u64 va_addr;		/* to KFD */
+	__u64 size;		/* to KFD */
+	__u64 handle;		/* from KFD */
+	__u64 mmap_offset;	/* to KFD (userptr), from KFD (mmap offset) */
+	__u32 gpu_id;		/* to KFD */
+	__u32 flags;
+	/* VRAM memory partition ID */
+	__s32 mem_id;		/* to KFD */
+	__u32 pad;
+};
+
 /* Free memory allocated with kfd_ioctl_alloc_memory_of_gpu
  *
  * @handle: memory handle returned by alloc
@@ -1991,7 +2003,10 @@ struct kfd_ioctl_ais_args {
 #define AMDKFD_IOC_AIS_OP			\
 		AMDKFD_IOWR(0x87, struct kfd_ioctl_ais_args)
 
+#define AMDKFD_IOC_ALLOC_MEMORY_OF_GPU_MEM_ID	\
+		AMDKFD_IOWR(0x88, struct kfd_ioctl_alloc_memory_of_gpu_mem_id_args)
+
 #define AMDKFD_COMMAND_START_2		0x80
-#define AMDKFD_COMMAND_END_2		0x88
+#define AMDKFD_COMMAND_END_2		0x89
 
 #endif
