@@ -1,0 +1,22 @@
+# Kbuild products
+*.o
+*.o.*
+*.ko
+*.ko.*
+*.mod
+*.mod.c
+*.cmd
+*.d
+*.a
+*.args
+*.symtypes
+*.btf
+Module.symvers
+modules.order
+Module.markers
+.tmp_versions/
+
+# Packaging products
+*.xz
+*.rpm
+*.deb
