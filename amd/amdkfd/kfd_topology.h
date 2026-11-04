@@ -31,6 +31,7 @@
 #include "kfd_crat.h"
 
 #define KFD_TOPOLOGY_PUBLIC_NAME_SIZE 32
+#define KFD_MAX_LOCALITY_DOMAINS 8
 
 #define HSA_DBG_WATCH_ADDR_MASK_LO_BIT_GFX9	6
 #define HSA_DBG_WATCH_ADDR_MASK_LO_BIT_GFX9_4_3 7
@@ -80,6 +81,10 @@ struct kfd_node_properties {
 	uint32_t ctl_stack_size;
 	uint32_t eop_buffer_size;
 	uint32_t debug_memory_size;
+	uint32_t locality_domain_count;
+	uint64_t locality_domain_start[KFD_MAX_LOCALITY_DOMAINS];
+	uint64_t locality_domain_end[KFD_MAX_LOCALITY_DOMAINS];
+	uint64_t locality_domain_xcc_mask[KFD_MAX_LOCALITY_DOMAINS];
 	char name[KFD_TOPOLOGY_PUBLIC_NAME_SIZE];
 };
 

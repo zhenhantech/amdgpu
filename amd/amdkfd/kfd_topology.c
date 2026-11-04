@@ -512,6 +512,8 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
 			      dev->node_props.ctl_stack_size);
 
 	if (dev->gpu) {
+		uint32_t i;
+
 		log_max_watch_addr =
 			__ilog2_u32(dev->gpu->kfd->device_info.num_of_watch_points);
 
@@ -561,6 +563,19 @@ static ssize_t node_show(struct kobject *kobj, struct attribute *attr,
 				      dev->gpu->adev->unique_id);
 		sysfs_show_32bit_prop(buffer, offs, "num_xcc",
 				      NUM_XCC(dev->gpu->xcc_mask));
+		sysfs_show_32bit_prop(buffer, offs, "locality_domain_count",
+				      dev->node_props.locality_domain_count);
+		for (i = 0; i < dev->node_props.locality_domain_count; i++) {
+			sysfs_show_gen_prop(buffer, offs,
+					    "locality_domain%u_start %llu\n", i,
+					    dev->node_props.locality_domain_start[i]);
+			sysfs_show_gen_prop(buffer, offs,
+					    "locality_domain%u_end %llu\n", i,
+					    dev->node_props.locality_domain_end[i]);
+			sysfs_show_gen_prop(buffer, offs,
+					    "locality_domain%u_xcc_mask %llu\n", i,
+					    dev->node_props.locality_domain_xcc_mask[i]);
+		}
 	}
 
 	return sysfs_show_32bit_prop(buffer, offs, "max_engine_clk_ccompute",
@@ -2208,6 +2223,53 @@ int kfd_topology_add_device(struct kfd_node *gpu)
 		dev->gpu->dqm->sched_policy != KFD_SCHED_POLICY_NO_HWS) ?
 		dev->gpu->adev->gds.gws_size : 0;
 	dev->node_props.num_cp_queues = get_cp_queues_num(dev->gpu->dqm);
+
+	/*
+	 * Export the memory-locality topology from the same authoritative
+	 * mem_partitions[] table used by BO placement. In SPX every memory
+	 * partition is visible through one KFD node. In split compute modes a
+	 * node exposes only the partition local to its physical XCC subset.
+	 */
+	if (gpu->adev->gmc.mem_partitions &&
+	    gpu->adev->gmc.num_mem_partitions > 0) {
+		uint32_t num_mem = min_t(uint32_t,
+					gpu->adev->gmc.num_mem_partitions,
+					KFD_MAX_LOCALITY_DOMAINS);
+		uint32_t total_xcc = NUM_XCC(gpu->adev->gfx.xcc_mask);
+		uint32_t xcc_per_mem = total_xcc / num_mem;
+		bool spx = !gpu->xcp ||
+			gpu->xcp->xcp_mgr->mode == AMDGPU_SPX_PARTITION_MODE;
+		uint32_t first_mem = 0;
+		uint32_t count = num_mem;
+
+		if (!spx) {
+			uint32_t first_xcc = __ffs64(gpu->xcc_mask);
+
+			first_mem = xcc_per_mem ? first_xcc / xcc_per_mem : 0;
+			first_mem = min(first_mem, num_mem - 1);
+			count = 1;
+		}
+
+		dev->node_props.locality_domain_count = count;
+		for (i = 0; i < count; i++) {
+			uint32_t mem_id = spx ? i : first_mem;
+			struct amdgpu_mem_partition_info *part =
+				&gpu->adev->gmc.mem_partitions[mem_id];
+
+			dev->node_props.locality_domain_start[i] =
+				(uint64_t)part->range.fpfn << PAGE_SHIFT;
+			dev->node_props.locality_domain_end[i] =
+				((uint64_t)part->range.lpfn + 1) << PAGE_SHIFT;
+			if (spx && xcc_per_mem)
+				dev->node_props.locality_domain_xcc_mask[i] =
+					GENMASK_ULL((i + 1) * xcc_per_mem - 1,
+						    i * xcc_per_mem) &
+					gpu->adev->gfx.xcc_mask;
+			else
+				dev->node_props.locality_domain_xcc_mask[i] =
+					gpu->xcc_mask;
+		}
+	}
 
 	kfd_fill_mem_clk_max_info(dev);
 	kfd_fill_iolink_non_crat_info(dev);
