@@ -1121,6 +1121,15 @@ static void gmc_v9_0_get_coherence_flags(struct amdgpu_device *adev,
 			    num_possible_nodes() <= 1) ||
 			   (is_vram && adev == bo_adev &&
 			    KFD_XCP_MEM_ID(adev, bo->xcp_id) == vm->mem_id);
+		/*
+		 * SPX with several memory partitions: the XCP mem_id check
+		 * above is trivially true, but MTYPE_RW is only coherent for
+		 * XCCs on the IOD owning the BO. Use the coherent mapping.
+		 */
+		if (is_local && is_vram && adev->xcp_mgr &&
+		    adev->xcp_mgr->mode == AMDGPU_SPX_PARTITION_MODE &&
+		    adev->gmc.num_mem_partitions > 1)
+			is_local = false;
 		snoop = true;
 		if (uncached) {
 			mtype = MTYPE_UC;
