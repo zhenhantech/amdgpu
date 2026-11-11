@@ -842,8 +842,8 @@ u64 amdgpu_amdkfd_xcp_memory_size(struct amdgpu_device *adev, int xcp_id)
 	s8 mem_id = KFD_XCP_MEM_ID(adev, xcp_id);
 	u64 tmp;
 
-	/* SPX + NPS2 uses one compute partition across both memory regions,
-	 * so retain the full-card KFD quota.
+	/* SPX with NPS2/NPS4 keeps one compute partition across every
+	 * memory window, so retain the full-card KFD quota.
 	 */
 	if (adev->xcp_mgr &&
 	    adev->xcp_mgr->mode == AMDGPU_SPX_PARTITION_MODE &&

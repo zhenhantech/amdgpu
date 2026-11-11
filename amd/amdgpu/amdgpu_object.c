@@ -119,8 +119,8 @@ void amdgpu_bo_placement_from_domain(struct amdgpu_bo *abo, u32 domain)
 		unsigned int visible_pfn = adev->gmc.visible_vram_size >> PAGE_SHIFT;
 		int8_t mem_id = abo->mem_id;
 
-		/* In SPX + NPS2, an unspecified allocation uses the full VRAM
-		 * pool rather than the XCP's placeholder memory ID.
+		/* In SPX + NPS2/NPS4, an unspecified allocation uses the full
+		 * VRAM pool rather than the XCP's placeholder memory ID.
 		 */
 		if (mem_id < 0 &&
 		    !(adev->xcp_mgr &&

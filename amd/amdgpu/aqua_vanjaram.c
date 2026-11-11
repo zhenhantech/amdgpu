@@ -213,11 +213,13 @@ static int __aqua_vanjaram_get_px_mode_info(struct amdgpu_xcp_mgr *xcp_mgr,
 	switch (px_mode) {
 	case AMDGPU_SPX_PARTITION_MODE:
 		*num_xcp = 1;
-		/* NPS2 exposes two IOD-local VRAM regions without splitting SPX.
-		 * BO placement selects the requested region.
+		/*
+		 * NPS2 and NPS4 expose per-window VRAM without splitting the
+		 * SPX compute partition. BO placement selects the window.
 		 */
 		*nps_modes = BIT(AMDGPU_NPS1_PARTITION_MODE) |
-			     BIT(AMDGPU_NPS2_PARTITION_MODE);
+			     BIT(AMDGPU_NPS2_PARTITION_MODE) |
+			     BIT(AMDGPU_NPS4_PARTITION_MODE);
 		break;
 	case AMDGPU_DPX_PARTITION_MODE:
 		*num_xcp = 2;

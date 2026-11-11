@@ -2251,23 +2251,44 @@ int kfd_topology_add_device(struct kfd_node *gpu)
 		}
 
 		dev->node_props.locality_domain_count = count;
-		for (i = 0; i < count; i++) {
-			uint32_t mem_id = spx ? i : first_mem;
-			struct amdgpu_mem_partition_info *part =
-				&gpu->adev->gmc.mem_partitions[mem_id];
+		/*
+		 * Walk physical XCC bits in ascending order and assign
+		 * xcc_per_mem XCCs to each memory domain. Avoid GENMASK_ULL
+		 * with runtime bounds; a non-contiguous xcc_mask can leave
+		 * middle locality domains with an empty XCC mask.
+		 */
+		{
+			uint64_t domain_xcc[KFD_MAX_LOCALITY_DOMAINS] = { 0 };
+			uint64_t phys = gpu->adev->gfx.xcc_mask;
+			uint32_t bit, seen = 0;
 
-			dev->node_props.locality_domain_start[i] =
-				(uint64_t)part->range.fpfn << PAGE_SHIFT;
-			dev->node_props.locality_domain_end[i] =
-				((uint64_t)part->range.lpfn + 1) << PAGE_SHIFT;
-			if (spx && xcc_per_mem)
-				dev->node_props.locality_domain_xcc_mask[i] =
-					GENMASK_ULL((i + 1) * xcc_per_mem - 1,
-						    i * xcc_per_mem) &
-					gpu->adev->gfx.xcc_mask;
-			else
-				dev->node_props.locality_domain_xcc_mask[i] =
-					gpu->xcc_mask;
+			if (spx && xcc_per_mem) {
+				for_each_set_bit(bit, (unsigned long *)&phys,
+						 BITS_PER_TYPE(phys)) {
+					uint32_t mem = seen / xcc_per_mem;
+
+					if (mem < num_mem)
+						domain_xcc[mem] |= BIT_ULL(bit);
+					seen++;
+				}
+			}
+
+			for (i = 0; i < count; i++) {
+				uint32_t mem_id = spx ? i : first_mem;
+				struct amdgpu_mem_partition_info *part =
+					&gpu->adev->gmc.mem_partitions[mem_id];
+
+				dev->node_props.locality_domain_start[i] =
+					(uint64_t)part->range.fpfn << PAGE_SHIFT;
+				dev->node_props.locality_domain_end[i] =
+					((uint64_t)part->range.lpfn + 1) << PAGE_SHIFT;
+				if (spx && xcc_per_mem)
+					dev->node_props.locality_domain_xcc_mask[i] =
+						domain_xcc[mem_id];
+				else
+					dev->node_props.locality_domain_xcc_mask[i] =
+						gpu->xcc_mask;
+			}
 		}
 	}
 
